@@ -1,89 +1,191 @@
-# Simulador de Fábrica Multi-hilo (Productor-Consumidor)
+# 🏭 Multithreaded Factory Simulator
 
-Simulación en **C** del funcionamiento de una fábrica con múltiples líneas de producción concurrentes, desarrollada para la asignatura de Sistemas Operativos (UC3M). Implementa el patrón clásico **productor-consumidor** usando **POSIX Threads**, semáforos y variables de condición.
+Academic project developed for the **Operating Systems** course (**Universidad Carlos III de Madrid**). The project simulates a **multithreaded manufacturing system** implementing the classical **Producer–Consumer** pattern using **POSIX Threads**, **mutexes**, **condition variables**, and **semaphores**.
 
-## Descripción
+## 📌 Overview
 
-El sistema simula una fábrica jerárquica de tres niveles:
+The simulator models a factory composed of multiple independent production lines running concurrently.
 
-```
-factory_manager                 # Lanza y coordina los process_manager
-   ├── process_manager (cinta 1)
-   │      ├── producer  ──▶ cinta de transporte (buffer circular) ──▶  consumer
-   ├── process_manager (cinta 2)
-   │      └── ...
-   └── ...
-```
+Each production line consists of:
 
-- **`factory_manager`**: lee el fichero de configuración de la fábrica, valida su contenido y lanza los hilos `process_manager` necesarios, sincronizando su ejecución mediante **semáforos** para respetar el orden y el número máximo de procesos indicado.
-- **`process_manager`**: gestiona una cinta de transporte (cola circular) y lanza un hilo **productor** y un hilo **consumidor** que trabajan sobre ella.
-- **`queue`**: cola circular *thread-safe*, implementada con **mutex y variables de condición**, que soporta inserción y extracción bloqueante cuando está llena/vacía respectivamente.
+* A **Producer** thread that generates products.
+* A **Consumer** thread that processes products.
+* A shared **thread-safe circular buffer** representing the conveyor belt.
 
-## Estructura del código
+The project focuses on synchronization, concurrent execution, and safe resource sharing while preventing race conditions and deadlocks.
 
-```
-factory_manager.c   # Lectura/validación del fichero de configuración y lanzamiento de hilos
-process_manager.c   # Gestión de la cinta y de los hilos productor/consumidor
-queue.c / queue.h   # Cola circular thread-safe (buffer compartido)
-Makefile
-```
+---
 
-### Funciones principales de la cola (`queue.c`)
+## 🏗️ System Architecture
 
-| Función | Descripción |
-|---|---|
-| `queue_init(int num_elements)` | Reserva e inicializa la cola circular |
-| `queue_put(struct element *ele)` | Inserta un elemento (bloquea si está llena) |
-| `queue_get(void)` | Extrae un elemento (bloquea si está vacía) |
-| `queue_empty(void)` / `queue_full(void)` | Consultan el estado de la cola |
-| `queue_destroy(void)` | Libera todos los recursos asociados |
+The factory is organized in a hierarchical structure:
 
-## Formato del fichero de entrada
-
-```
-<nº máx. cintas> [<id cinta> <tamaño cinta> <nº elementos>]+
+```text
+Factory Manager
+      │
+      ├── Process Manager (Production Line 1)
+      │         ├── Producer
+      │         ├── Conveyor Belt (Circular Buffer)
+      │         └── Consumer
+      │
+      ├── Process Manager (Production Line 2)
+      │         ├── Producer
+      │         ├── Conveyor Belt
+      │         └── Consumer
+      │
+      └── ...
 ```
 
-Ejemplo:
+The architecture includes:
 
+* Factory manager responsible for configuration and scheduling.
+* Independent production-line managers.
+* Producer and consumer worker threads.
+* Thread-safe circular buffer shared between threads.
+* Semaphore-based synchronization between production lines.
+
+---
+
+## ⚙️ Synchronization Mechanisms
+
+The simulator combines several synchronization primitives provided by **POSIX Threads**.
+
+| Component                   | Purpose                                        |
+| --------------------------- | ---------------------------------------------- |
+| **POSIX Threads (pthread)** | Concurrent execution                           |
+| **Mutexes**                 | Mutual exclusion on shared resources           |
+| **Condition Variables**     | Blocking producers and consumers when required |
+| **Semaphores**              | Synchronization between production lines       |
+| **Circular Buffer**         | Thread-safe shared queue                       |
+
+These mechanisms guarantee safe communication between concurrent threads while avoiding race conditions.
+
+---
+
+## 🔄 Execution Workflow
+
+Each production line follows the classical Producer–Consumer workflow:
+
+1. The Factory Manager reads the configuration file.
+2. Production lines are created according to the specified schedule.
+3. Each Process Manager launches one Producer and one Consumer thread.
+4. Producers insert items into the shared conveyor belt.
+5. Consumers remove items from the conveyor belt.
+6. Synchronization primitives coordinate concurrent access to shared resources.
+
+---
+
+## 📂 Project Structure
+
+```text
+├── factory_manager.c      # Factory initialization and scheduling
+├── process_manager.c      # Production-line management
+├── queue.c                # Thread-safe circular buffer
+├── queue.h
+├── Makefile
+└── README.md
 ```
-4 5 5 2 1 2 3 3 5 2
-```
 
-Define un máximo de 4 líneas de producción; la primera (id 5) con cinta de tamaño 5 y 2 elementos a producir, y así sucesivamente. Los IDs no necesitan ser consecutivos, pero el orden de ejecución especificado en el fichero se preserva mediante los semáforos.
+---
 
-## Compilación y ejecución
+## 🚀 Features
+
+* Multithreaded production-line simulation
+* Producer–Consumer implementation
+* Thread-safe circular buffer
+* Mutex and condition variable synchronization
+* Semaphore-based scheduling
+* Dynamic configuration through input files
+* Error detection and recovery
+* Modular architecture
+
+---
+
+## 💻 Build & Run
+
+Compile the project:
 
 ```bash
 make
-./factory_manager fichero_configuracion.txt
 ```
 
-Ejemplo de salida:
+Run the simulator:
 
+```bash
+./factory_manager configuration.txt
 ```
-[OK][factory_manager] Process_manager with id 5 has been created.
-[OK][process_manager] Process_manager with id 5 waiting to produce 2 elements.
-[OK][process_manager] Belt with id 5 has been created with a maximum of 5 elements.
-[OK][queue] Introduced element with id 0 in belt 5.
-[OK][queue] Obtained element with id 0 in belt 5.
+
+Example output:
+
+```text
+[OK] Process manager created.
+[OK] Conveyor belt initialized.
+[OK] Producer generated element 0.
+[OK] Consumer processed element 0.
 ...
-[OK][factory_manager] Finishing.
+[OK] Factory simulation completed.
 ```
 
-## Manejo de errores
+---
 
-- Fichero inválido, argumentos incorrectos, tamaños o valores negativos → mensaje de error por `stderr` y código de retorno `-1`.
-- Si un `process_manager` concreto falla, el `factory_manager` lo detecta y **continúa** con el resto sin detener la ejecución completa.
+## 🛡️ Error Handling
 
-## Pruebas realizadas
+The simulator performs extensive input validation and runtime error handling.
 
-Se han validado tanto casos funcionales (una cinta, múltiples cintas, cinta de tamaño 1, número máximo de procesos) como casos de error (fichero inexistente, valores negativos, más cintas que el máximo declarado, argumentos faltantes), verificando en todos los casos la correcta liberación de memoria y ausencia de condiciones de carrera.
+Supported error scenarios include:
 
-## Tecnologías
+* Invalid configuration files
+* Missing command-line arguments
+* Negative or inconsistent parameters
+* Invalid production-line definitions
+* Resource allocation failures
 
-`C` · `POSIX Threads (pthread)` · Semáforos · Mutex y variables de condición · Linux
+If a production line fails, the Factory Manager detects the error and continues executing the remaining production lines whenever possible.
 
-## Autores
+---
 
-Proyecto desarrollado en pareja para la asignatura de Sistemas Operativos, Grado en Ingeniería Informática, Universidad Carlos III de Madrid (2024/2025).
+## ✅ Testing
+
+The implementation was validated under multiple scenarios, including:
+
+* Single production line
+* Multiple concurrent production lines
+* Small and large conveyor buffers
+* Maximum supported number of production lines
+* Invalid configuration files
+* Incorrect input parameters
+* Concurrent execution stress tests
+
+Special attention was given to preventing race conditions, deadlocks, and memory leaks.
+
+---
+
+## 🛠️ Technologies
+
+`C` · `POSIX Threads (pthread)` · `Mutexes` · `Condition Variables` · `Semaphores` · `Circular Buffers` · `Concurrent Programming` · `Linux`
+
+---
+
+## 🎯 Learning Outcomes
+
+During the development of this project, the following concepts were applied:
+
+* Concurrent Programming
+* Producer–Consumer Pattern
+* POSIX Threads
+* Thread Synchronization
+* Mutexes and Condition Variables
+* Semaphores
+* Shared Memory Synchronization
+* Operating Systems
+* Deadlock Prevention
+* Thread-Safe Data Structures
+
+---
+
+## 👥 Authors
+
+* Diego Calles Duque
+* Tristán Serrano Álvarez
+
+Project developed for the **Operating Systems** course, **Bachelor's Degree in Computer Engineering**, Universidad Carlos III de Madrid (2024–2025).
